@@ -1,8 +1,11 @@
 use std::collections::{HashMap, HashSet};
 use std::fs::{copy, create_dir_all, exists, read_to_string, write};
+use std::ops::Add;
 use std::path::PathBuf;
+use std::sync::atomic::{AtomicU64, Ordering};
 use std::time::SystemTime;
 
+use indicatif::{ProgressBar, ProgressStyle};
 use rayon::iter::{IntoParallelRefIterator, ParallelIterator};
 use regex::Regex;
 use serde::Deserialize;
@@ -81,15 +84,38 @@ fn log_moves(moves: &HashMap<PathBuf, FileInfo>) {
     }
 }
 
-fn copy_files(moves: &HashMap<PathBuf, FileInfo>) -> u64 {
-    (moves.par_iter())
-        .map(|(dest, file)| {
-            copy(&file.path, dest).unwrap_or_else(|e| {
-                println!("Error copying {:?} to {dest:?}: {e:?}", &file.path);
-                0
-            })
-        })
-        .sum()
+fn copy_files(moves: &HashMap<PathBuf, FileInfo>) {
+    let style = ProgressStyle::with_template("[{elapsed_precise}] {bar:40} {pos:>7}/{len:7} {msg}")
+        .unwrap()
+        .progress_chars("##-");
+    let pb = ProgressBar::new(moves.len() as u64).with_style(style);
+    let total_bytes = AtomicU64::new(0);
+    let total_errors = AtomicU64::new(0);
+
+    moves.par_iter().for_each(|(dest, file)| {
+        pb.inc(1);
+        let bytes = copy(&file.path, dest).unwrap_or_else(|e| {
+            println!("Error copying {:?} to {dest:?}: {e:?}", &file.path);
+            total_errors.fetch_add(1, Ordering::Relaxed);
+            0
+        });
+        let sum = total_bytes.fetch_add(bytes, Ordering::Relaxed) + bytes;
+        let rate = util::format_bytes(sum as f64 / pb.elapsed().as_secs_f64()).add("/s");
+        pb.set_message(rate);
+    });
+
+    let time = pb.elapsed();
+    pb.finish_and_clear();
+    let errors = total_errors.load(Ordering::Relaxed);
+    let bytes = total_bytes.load(Ordering::Relaxed);
+    let rate = bytes as f64 / time.as_secs_f64();
+    println!(
+        "Copied: {}\tErrors: {}\tTime: {:.1?}\tRate: {}/s",
+        moves.len() as u64 - errors,
+        errors,
+        time,
+        util::format_bytes(rate)
+    );
 }
 
 fn main() {
@@ -137,16 +163,7 @@ fn main() {
         println!("Quitting");
         return;
     }
-    let copy_start = SystemTime::now();
     (dest_dirs.iter())
         .for_each(|d| create_dir_all(d).expect(format!("Failed to create dir {d:?}").as_str()));
-    let total_size = copy_files(&moves);
-    let copy_time = copy_start.elapsed().unwrap();
-    println!(
-        "Moved: {}\tTotal Time: {:.1?}\t Copy Time: {:.1?}\tCopy Rate: {}/s",
-        moves.len(),
-        start.elapsed().unwrap(),
-        copy_time,
-        util::format_bytes(total_size as f64 / copy_time.as_secs_f64())
-    );
+    copy_files(&moves);
 }

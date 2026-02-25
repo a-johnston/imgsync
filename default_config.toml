@@ -22,7 +22,7 @@ source_filename = "^\\w+([.]\\w+)+$"
 # Destination folders to sync sources to. Optionally accepts timestamp formatting.
 # For example, the following pattern would place files in folders grouped by date.
 # dest_dirs = ["~/Pictures/library/%Y/%b/"]
-dest_dirs = ["~/Pictures/library/%Y/%b/"]
+dest_dirs = []
 
 # Format string for destination filenames. Supports timestamp and keyword formatting.
 # Supported keywords are 'name', 'parent', 'suffix', 'extensions'. Unless overridden
