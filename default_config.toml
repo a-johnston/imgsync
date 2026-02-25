@@ -32,7 +32,7 @@ dest_dirs = ["~/Pictures/library/%Y/%b/"]
 # filename and cannot have its value overridden. The default pattern takes files with
 # paths such as:
 #   source/100MSDCF/DSC02179.ARW
-# and transforms them into filenames such as:
+# and copies them with new filenames such as:
 #   100MSDCF_DSC02179.ARW
 dest_filename = "{parent}_{name}{suffix}.{extensions}"
 
