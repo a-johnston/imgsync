@@ -1,43 +1,14 @@
-# Glob patterns to discover source directories.
-# Pattern documentation: https://docs.rs/glob/latest/glob/struct.Pattern.html
-# For example, on MacOS the following pattern matches a common folder structure
-# for mounted SD card volumes:
-# source_dirs = ["/Volumes/*/DCIM/*/"]
-source_dirs = []
-
-# Source filesnames to match using regex. The default pattern matches any file
-# whose name contains only alphanumeric or underscore characters with one or
-# more extensions. This selects normally named files while omitting hidden or
-# metadata files which start with either a '.' or '_'. If this value is an
-# empty string, all files within the source directories are matched.
-#
-# Optionally, the named groups 'name', 'extensions', and 'parent' can be used
-# to override default values in the output filenames. This value can be changed
-# temporarily for migrating existing files from one structure to another. For
-# example, if the default dest_filename is used, the following regex would match
-# the original parent and name values:
-# source_filename = "^(?<parent>\\w+)_(?<name>\\w+)(?<extensions>[\\w.]+)$"
-source_filename = "^\\w+([.]\\w+)+$"
-
-# Destination folders to sync sources to. Optionally accepts timestamp formatting.
-# For example, the following pattern would place files in folders grouped by date.
-# dest_dirs = ["~/Pictures/library/%Y/%b/"]
-dest_dirs = []
-
-# Format string for destination filenames. Supports timestamp and keyword formatting.
-# Supported keywords are 'name', 'parent', 'suffix', 'extensions'. Unless overridden
-# by source_filename, 'parent' is the name of the parent directory of the file, 'name'
-# is the portion of the filename left of the first '.', and 'extensions' is the rest
-# of the filename. The 'suffix' value is used for ensuring uniqueness of the output
-# filename and cannot have its value overridden. The default pattern takes files with
-# paths such as:
-#   source/100MSDCF/DSC02179.ARW
-# and copies them with new filenames such as:
-#   100MSDCF_DSC02179.ARW
-dest_filename = "{parent}_{name}{suffix}.{extensions}"
-
-# Prints all source and dest filepaths to stdout before performing moves.
 log_moves = true
-
-# Asks for confirmation before performing moves.
 confirm_moves = true
+
+[[sources]]
+dir_pattern = "/Volumes/*/DCIM/*/"
+file_regex = "^\\w+([.]\\w+)+$"
+
+[[destinations]]
+dir_pattern = "~/Pictures/library/%Y/%b/"
+file_pattern = "{parent}_{name}{suffix}.{extensions}"
+
+[[destinations.ignore]]
+dir_pattern = "~/Pictures/rejects/"
+file_regex = "^\\w+([.]\\w+)+$"

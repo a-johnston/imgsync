@@ -31,10 +31,6 @@ pub fn expand_homedir(path: &str) -> String {
     path.replace("~", std::env::var("HOME").unwrap().as_str())
 }
 
-pub fn expand_homedir_vec(paths: &mut Vec<String>) {
-    (paths.iter_mut()).for_each(|path| *path = expand_homedir(&path));
-}
-
 pub fn path_fname<P>(p: &P) -> &str
 where
     P: AsRef<Path> + ?Sized,
