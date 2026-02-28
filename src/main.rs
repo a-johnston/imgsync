@@ -105,6 +105,6 @@ fn main() {
         return;
     }
     (dest_dirs.iter())
-        .for_each(|d| create_dir_all(d).expect(format!("Failed to create dir {d:?}").as_str()));
+        .for_each(|d| create_dir_all(d).unwrap_or_else(|_| panic!("Failed to create dir {d:?}")));
     plan.perform_moves();
 }

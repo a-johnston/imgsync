@@ -1,7 +1,7 @@
 use std::collections::HashMap;
 use std::fs::copy;
 use std::ops::Add;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::time::SystemTime;
 
@@ -71,7 +71,7 @@ impl Plan {
         }
     }
 
-    pub fn add_move(&mut self, source: &FileInfo, dest: &PathBuf) {
+    pub fn add_move(&mut self, source: &FileInfo, dest: &Path) {
         if self.use_first_moves {
             if let Some(first_dest) = self.first_moves.get(source) {
                 let new_file = FileInfo {
@@ -79,12 +79,12 @@ impl Plan {
                     created: source.created,
                     format_args: source.format_args.clone(),
                 };
-                self.moves.insert(dest.clone(), new_file);
+                self.moves.insert(dest.to_path_buf(), new_file);
             } else {
-                self.first_moves.insert(source.clone(), dest.clone());
+                self.first_moves.insert(source.clone(), dest.to_path_buf());
             }
         } else {
-            self.moves.insert(dest.clone(), source.clone());
+            self.moves.insert(dest.to_path_buf(), source.clone());
         }
     }
 

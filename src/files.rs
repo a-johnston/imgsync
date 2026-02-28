@@ -18,7 +18,7 @@ pub fn get_files_for_dirs<P>(
 where
     P: AsRef<Path>,
 {
-    dirs.flat_map_iter(move |dir| read_dir(dir).into_iter().flat_map(|read_dir| read_dir))
+    dirs.flat_map_iter(move |dir| read_dir(dir).into_iter().flatten())
         .filter_map(|entry| entry.ok())
 }
 
@@ -63,11 +63,10 @@ pub struct FileFormatArgs {
 impl FileFormatArgs {
     fn new(p: &PathBuf, file_matcher: &Option<Regex>) -> Option<Self> {
         let file_name = util::path_fname(p);
-        let mut parent = (p.parent())
-            .and_then(|p| Some(util::path_fname(p)))
-            .unwrap_or("");
-        let (mut name, mut extensions) = (file_name.split_once('.'))
-            .and_then(|(a, b)| Some((a, b.trim_start_matches("."))))
+        let mut parent = p.parent().map(util::path_fname).unwrap_or("");
+        let (mut name, mut extensions) = file_name
+            .split_once('.')
+            .map(|(a, b)| (a, b.trim_start_matches(".")))
             .unwrap_or((file_name, ""));
         if let Some(regex) = file_matcher {
             if let Some(captures) = regex.captures(file_name) {
@@ -88,7 +87,7 @@ impl FileFormatArgs {
     fn format(&self, s: &str, suffix: &str) -> String {
         s.replace("{name}", &self.name)
             .replace("{parent}", &self.parent)
-            .replace("{suffix}", &suffix)
+            .replace("{suffix}", suffix)
             .replace("{extensions}", &self.extensions)
     }
 }
@@ -110,7 +109,7 @@ impl FileInfo {
                 path: dir_entry.path(),
                 // NB: If created metadata is not available, this program shouldn't run
                 created: metadata.created().unwrap(),
-                format_args: format_args,
+                format_args,
             })
         } else {
             None
@@ -190,7 +189,7 @@ impl FileGroup {
         let mut suffix = 0;
         while self.get_moves(destination, suffix).any(|(k, v)| {
             (existing.get(&k))
-                .and_then(|other| Some(!v.content_matches(other)))
+                .map(|other| !v.content_matches(other))
                 .unwrap_or(false)
         }) {
             if !destination.file_pattern.contains("{suffix}") {
@@ -243,24 +242,18 @@ impl Destination {
 
 pub fn get_groups(files: impl ParallelIterator<Item = FileInfo>) -> Vec<FileGroup> {
     files
-        .fold(
-            || HashMap::new(),
-            |mut groups, file| {
-                let key = file.path.file_prefix().unwrap().to_owned();
-                let group = groups.entry(key).or_insert_with(FileGroup::empty);
-                group.files.push(file);
-                groups
-            },
-        )
-        .reduce(
-            || HashMap::new(),
-            |mut map_a, mut map_b| {
-                util::map_update(&mut map_a, &mut map_b, |a, b| {
-                    (*a).files.extend_from_slice(&b.files)
-                });
-                map_a
-            },
-        )
+        .fold(HashMap::new, |mut groups, file| {
+            let key = file.path.file_prefix().unwrap().to_owned();
+            let group = groups.entry(key).or_insert_with(FileGroup::empty);
+            group.files.push(file);
+            groups
+        })
+        .reduce(HashMap::new, |mut map_a, mut map_b| {
+            util::map_update(&mut map_a, &mut map_b, |a, b| {
+                a.files.extend_from_slice(&b.files)
+            });
+            map_a
+        })
         .drain()
         .map(|(_, v)| v)
         .collect()

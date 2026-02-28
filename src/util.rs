@@ -38,13 +38,13 @@ where
     p.as_ref().file_name().unwrap().to_str().unwrap()
 }
 
-pub fn path_with_push<T: AsRef<Path>>(path: &PathBuf, push: T) -> PathBuf {
-    let mut new = path.clone();
+pub fn path_with_push<T: AsRef<Path>>(path: &Path, push: T) -> PathBuf {
+    let mut new = path.to_path_buf();
     new.push(push);
     new
 }
 
-pub fn create_parents(path: &PathBuf) -> std::io::Result<()> {
+pub fn create_parents(path: &Path) -> std::io::Result<()> {
     if let Some(parent) = path.parent() {
         create_dir_all(parent)
     } else {
