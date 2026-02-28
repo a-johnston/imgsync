@@ -18,8 +18,8 @@ pub fn get_files_for_dirs<P>(
 where
     P: AsRef<Path>,
 {
-    dirs.flat_map_iter(move |dir| read_dir(dir).unwrap().into_iter())
-        .flatten()
+    dirs.flat_map_iter(move |dir| read_dir(dir).into_iter().flat_map(|read_dir| read_dir))
+        .filter_map(|entry| entry.ok())
 }
 
 #[derive(Deserialize)]
@@ -117,19 +117,23 @@ impl FileInfo {
         }
     }
 
-    fn matches(&self, other: &Self) -> bool {
+    fn content_matches(&self, other: &Self) -> bool {
         // This is a bad heuristic although it works for me. Replace/combine with cheap file hash?
-        let delta = match self.created.duration_since(other.created) {
-            Ok(d) => d,
-            Err(e) => e.duration(),
-        };
-        return delta.as_secs_f32() < 0.001;
+        if self.format_args.extensions != other.format_args.extensions {
+            return false;
+        }
+        let delta = (self.created)
+            .duration_since(other.created)
+            .unwrap_or_else(|e| e.duration());
+        delta.as_secs_f32() < 0.001
     }
 }
 
 impl PartialEq for FileInfo {
     fn eq(&self, other: &Self) -> bool {
-        self.created == other.created && self.format_args.name == other.format_args.name
+        self.created == other.created
+            && self.format_args.name == other.format_args.name
+            && self.format_args.extensions == other.format_args.extensions
     }
 }
 
@@ -137,6 +141,7 @@ impl Hash for FileInfo {
     fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
         self.created.hash(state);
         self.format_args.name.hash(state);
+        self.format_args.extensions.hash(state);
     }
 }
 
@@ -185,7 +190,7 @@ impl FileGroup {
         let mut suffix = 0;
         while self.get_moves(destination, suffix).any(|(k, v)| {
             (existing.get(&k))
-                .and_then(|other| Some(!v.matches(other)))
+                .and_then(|other| Some(!v.content_matches(other)))
                 .unwrap_or(false)
         }) {
             if !destination.file_pattern.contains("{suffix}") {

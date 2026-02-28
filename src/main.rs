@@ -73,7 +73,7 @@ fn main() {
     );
     let file_total: usize = groups.iter().map(|g| g.files.len()).sum();
     println!(
-        "Found {file_total} source files and {} file groups in {:?}",
+        "Found {file_total} source files and {} file groups in {:.1?}",
         groups.len(),
         start.elapsed().unwrap()
     );
@@ -90,7 +90,7 @@ fn main() {
     for dest in config.destinations {
         dest.plan_moves(&mut plan, &mut groups, &mut existing);
     }
-    println!("Finished planning in {:?}", start.elapsed().unwrap());
+    println!("Finished planning in {:.1?}", start.elapsed().unwrap());
     let total_moves = plan.len();
     if total_moves == 0 {
         println!("Nothing to do");

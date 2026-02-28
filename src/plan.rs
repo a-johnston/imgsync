@@ -3,6 +3,7 @@ use std::fs::copy;
 use std::ops::Add;
 use std::path::PathBuf;
 use std::sync::atomic::{AtomicU64, Ordering};
+use std::time::SystemTime;
 
 use indicatif::{ProgressBar, ProgressStyle};
 use rayon::iter::{IntoParallelRefIterator, ParallelIterator};
@@ -29,9 +30,9 @@ fn copy_file(
         errors.fetch_add(1, Ordering::Relaxed);
         0
     });
-    let sum = bytes.fetch_add(new_bytes, Ordering::Relaxed) + new_bytes;
-    let rate = util::format_bytes(sum as f64 / progress_bar.elapsed().as_secs_f64()).add("/s");
-    progress_bar.set_message(rate);
+    let sum = (bytes.fetch_add(new_bytes, Ordering::Relaxed) + new_bytes) as f64;
+    let rate = util::format_bytes(sum / progress_bar.elapsed().as_secs_f64());
+    progress_bar.set_message(format!("{rate}/s {:>10}", util::format_bytes(sum)));
 }
 
 fn copy_files<'a>(
@@ -51,12 +52,13 @@ fn copy_files<'a>(
     let bytes = bytes.load(Ordering::Relaxed);
     let rate = bytes as f64 / time.as_secs_f64();
     println!(
-        "{}Copied: {}\tErrors: {}\tTime: {:.1?}\tRate: {}/s",
+        "{}Copied: {}\tErrors: {}\tTime: {:.1?}\tRate: {}/s\tTotal: {}",
         prefix,
         count as u64 - errors,
         errors,
         time,
-        util::format_bytes(rate)
+        util::format_bytes(rate),
+        util::format_bytes(bytes as f64),
     );
 }
 
@@ -120,8 +122,10 @@ impl Plan {
             if self.moves.is_empty() {
                 copy_files("", self.first_moves.len(), self.get_first_moves());
             } else {
+                let start = SystemTime::now();
                 copy_files("[1/2] ", self.first_moves.len(), self.get_first_moves());
                 copy_files("[2/2] ", self.moves.len(), self.get_secondary_moves());
+                println!("Total Time: {:.1?}", start.elapsed().unwrap());
             }
         } else {
             copy_files("", self.moves.len(), self.get_secondary_moves());
