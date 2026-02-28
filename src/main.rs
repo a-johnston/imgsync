@@ -22,14 +22,11 @@ fn default_true() -> bool {
 struct Config {
     sources: Vec<FilePattern>,
     destinations: Vec<Destination>,
-
     #[serde(default = "default_true")]
     log_moves: bool,
-
     #[serde(default = "default_true")]
     confirm_moves: bool,
-
-    #[serde(default = "default_true")]
+    #[serde(default)]
     prefer_dest_copies: bool,
 }
 
@@ -91,7 +88,7 @@ fn main() {
         .collect();
     let mut plan = plan::Plan::new(config.prefer_dest_copies);
     for dest in config.destinations {
-        dest.populate_moves(&mut groups, &mut plan, &mut existing);
+        dest.plan_moves(&mut plan, &mut groups, &mut existing);
     }
     println!("Finished planning in {:?}", start.elapsed().unwrap());
     let total_moves = plan.len();

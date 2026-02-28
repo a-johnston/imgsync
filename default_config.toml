@@ -1,14 +1,43 @@
-log_moves = true
-confirm_moves = true
+# # Hint: This entire file can be uncommented one-level to form a basic valid config.
 
-[[sources]]
-dir_pattern = "/Volumes/*/DCIM/*/"
-file_regex = "^\\w+([.]\\w+)+$"
+# # Uncomment to disable moves being printed to stdout
+# log_moves = false
 
-[[destinations]]
-dir_pattern = "~/Pictures/library/%Y/%b/"
-file_pattern = "{parent}_{name}{suffix}.{extensions}"
+# # Uncomment to start copying files without manual confirmation
+# confirm_moves = false
 
-[[destinations.ignore]]
-dir_pattern = "~/Pictures/rejects/"
-file_regex = "^\\w+([.]\\w+)+$"
+# # Uncomment to use the first destination as the copy source for secondary destinations.
+# # This can be helpful if that first destination is faster than the original source, such
+# # as an internal SSD compared to an SD card. If there is only one destination configured
+# # this option has no effect.
+# prefer_dest_copies = true
+
+# # Each source must start with this header:
+# [[sources]]
+# # Required. Uses rust glob rules for matching directories:
+# #   https://docs.rs/glob/latest/glob/struct.Pattern.html
+# # The following dir_pattern matches common paths for SD cards mounted on MacOS:
+# dir_pattern = "/Volumes/*/DCIM/*/"
+# # Optional. If omitted, all files are matched. If present, the named capture groups "name",
+# # "parent", or "extensions" override default values parsed from the path. This can be useful
+# # for migrating existing files to a new structure.
+# # The following file_regex matches non-hidden simple alphanumeric + underscore filenames:
+# file_regex = "^\\w+([.]\\w+)+$"
+
+# # Each destination must start with this header:
+# [[destinations]]
+# # Required. The pattern can include timestamp formatting options. This example uses the
+# # creation year and month to organize files into folders:
+# dir_pattern = "~/Pictures/library/%Y/%b/"
+# # Required. Uses values parsed from the source path except for {suffix} which is used to
+# # ensure unique output filenames. If an existing file is at the destination filepath and
+# # suffix is not present in this pattern, the program with panic and not move any files.
+# # This example pattern prefixes the filename with the original parent directory name:
+# file_pattern = "{parent}_{name}{suffix}.{extensions}"
+
+# # Each destination can define as many ignore patterns as necessary. A source file matching
+# # any ignore pattern is skipped for that destination. This example configuration prevents
+# # files manually moved to a "rejects" folder from be copied to the destination again.
+# [[destinations.ignore]]
+# dir_pattern = "~/Pictures/rejects/"
+# file_regex = "^\\w+([.]\\w+)+$"

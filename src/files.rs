@@ -9,8 +9,8 @@ use rayon::iter::{IntoParallelIterator, IntoParallelRefIterator, ParallelIterato
 use regex::Regex;
 use serde::Deserialize;
 
-use crate::util;
 use crate::plan;
+use crate::util;
 
 pub fn get_files_for_dirs<P>(
     dirs: impl ParallelIterator<Item = P>,
@@ -25,6 +25,7 @@ where
 #[derive(Deserialize)]
 pub struct FilePattern {
     dir_pattern: String,
+    #[serde(default)]
     file_regex: String,
 }
 
@@ -34,13 +35,18 @@ impl FilePattern {
     }
 
     pub fn match_files(&self) -> impl ParallelIterator<Item = FileInfo> {
+        let regex = if self.file_regex.is_empty() {
+            None
+        } else {
+            Regex::new(&self.file_regex).ok()
+        };
         get_files_for_dirs(
             glob::glob(&self.dir_pattern)
                 .into_par_iter()
                 .flat_map_iter(|paths| paths.flatten()),
         )
         // https://github.com/rust-lang/regex/blob/0d0023e41/PERFORMANCE.md#using-a-regex-from-multiple-threads
-        .map_with(Regex::new(&self.file_regex).ok(), |regex, dir_entry| {
+        .map_with(regex, |regex, dir_entry| {
             FileInfo::get_from_dir_entry(dir_entry, regex)
         })
         .filter_map(|f| f)
@@ -195,6 +201,7 @@ impl FileGroup {
 pub struct Destination {
     dir_pattern: String,
     file_pattern: String,
+    #[serde(default)]
     ignore: Vec<FilePattern>,
 }
 
@@ -208,15 +215,12 @@ impl Destination {
         (groups.par_iter()).map(|g| g.get_ts().format(&self.dir_pattern).to_string().into())
     }
 
-    pub fn populate_moves(
+    pub fn plan_moves(
         &self,
-        groups: &mut Vec<FileGroup>,
         plan: &mut plan::Plan,
+        groups: &mut Vec<FileGroup>,
         existing: &mut HashMap<PathBuf, FileInfo>,
     ) {
-        // Populates a map of moves for this destination. If maybe_first_moves is not None, it is populated
-        // with the first instance of a file movement and that destination is used as a source for future
-        // copies of that file. The contents of maybe_first_moves are processed before those of moves.
         let ignore: HashSet<_> = (self.ignore.par_iter())
             .flat_map(|ignore| ignore.match_files())
             .collect();

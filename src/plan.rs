@@ -117,8 +117,12 @@ impl Plan {
 
     pub fn perform_moves(self) {
         if self.use_first_moves {
-            copy_files("[1/2] ", self.first_moves.len(), self.get_first_moves());
-            copy_files("[2/2] ", self.moves.len(), self.get_secondary_moves());
+            if self.moves.is_empty() {
+                copy_files("", self.first_moves.len(), self.get_first_moves());
+            } else {
+                copy_files("[1/2] ", self.first_moves.len(), self.get_first_moves());
+                copy_files("[2/2] ", self.moves.len(), self.get_secondary_moves());
+            }
         } else {
             copy_files("", self.moves.len(), self.get_secondary_moves());
         }
