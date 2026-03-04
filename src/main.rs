@@ -66,11 +66,10 @@ fn main() {
         println!("Nothing to do (hint: no sources or destinations configured)");
         return;
     }
-    let mut groups = files::get_groups(
-        (config.sources)
-            .par_iter()
-            .flat_map(|source| source.match_files()),
-    );
+    let mut groups: Vec<FileGroup> = (config.sources)
+        .par_iter()
+        .flat_map(|source| files::get_groups(source.match_files()))
+        .collect();
     let file_total: usize = groups.iter().map(|g| g.files.len()).sum();
     println!(
         "Found {file_total} source files and {} file groups in {:.1?}",
