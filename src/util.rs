@@ -2,6 +2,7 @@ use std::collections::HashMap;
 use std::fs::create_dir_all;
 use std::hash::Hash;
 use std::path::{Path, PathBuf};
+use std::time::{Duration, SystemTime};
 
 pub fn map_update<'a, K, V>(
     map_a: &'a mut HashMap<K, V>,
@@ -62,4 +63,8 @@ pub fn get_user_confirmation(msg: &str, def: bool) -> bool {
     stdin.read_line(&mut buf).expect("Readline failed");
     let lower = buf.trim_end_matches('\n').to_lowercase();
     (lower.is_empty() && def) || lower == "y" || lower == "yes"
+}
+
+pub fn systime_delta(a: SystemTime, b: SystemTime) -> Duration {
+    a.duration_since(b).unwrap_or_else(|e| e.duration())
 }

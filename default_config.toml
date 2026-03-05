@@ -1,4 +1,4 @@
-# # Hint: This entire file can be uncommented one-level to form a basic valid config.
+# # Hint: Uncomment the [[sections]] blocks below to form a basic valid config.
 
 # # Uncomment to disable moves being printed to stdout
 # log_moves = false
@@ -12,8 +12,16 @@
 # # this option has no effect.
 # prefer_dest_copies = true
 
+# # Each [[sections]] block groups a set of sources with a set of destinations. All source
+# # files are copied to all destinations within the section. Multiple sections let different
+# # file types go to different places (e.g. photos vs. videos).
+
+# [[sections]]
+# # Optional. Used in log output to identify this section.
+# name = "photos"
+
 # # Each source must start with this header:
-# [[sources]]
+# [[sections.sources]]
 # # Required. Uses rust glob rules for matching directories:
 # #   https://docs.rs/glob/latest/glob/struct.Pattern.html
 # # The following dir_pattern matches common paths for SD cards mounted on MacOS:
@@ -21,23 +29,37 @@
 # # Optional. If omitted, all files are matched. If present, the named capture groups "name",
 # # "parent", or "extensions" override default values parsed from the path. This can be useful
 # # for migrating existing files to a new structure.
-# # The following file_regex matches non-hidden simple alphanumeric + underscore filenames:
-# file_regex = "^\\w+([.]\\w+)+$"
+# # The following file_regex matches common image formats:
+# file_regex = "^\\w+[.](?i:jpg|jpeg|png|cr2|cr3|arw|nef|dng|xmp)$"
 
 # # Each destination must start with this header:
-# [[destinations]]
+# [[sections.destinations]]
+
 # # Required. The pattern can include timestamp formatting options. This example uses the
 # # creation year and month to organize files into folders:
 # dir_pattern = "~/Pictures/library/%Y/%b/"
+
 # # Required. Uses values parsed from the source path except for {suffix} which is used to
 # # ensure unique output filenames. If an existing file is at the destination filepath and
-# # suffix is not present in this pattern, the program with panic and not move any files.
+# # suffix is not present in this pattern, the program will panic and not move any files.
 # # This example pattern prefixes the filename with the original parent directory name:
 # file_pattern = "{parent}_{name}{suffix}.{extensions}"
 
 # # Each destination can define as many ignore patterns as necessary. A source file matching
 # # any ignore pattern is skipped for that destination. This example configuration prevents
-# # files manually moved to a "rejects" folder from be copied to the destination again.
-# [[destinations.ignore]]
+# # files manually moved to a "rejects" folder from being copied to the destination again.
+# [[sections.destinations.ignore]]
 # dir_pattern = "~/Pictures/rejects/"
 # file_regex = "^\\w+([.]\\w+)+$"
+
+# # Example second section for videos syncing to a different destination:
+# [[sections]]
+# name = "videos"
+
+# [[sections.sources]]
+# dir_pattern = "/Volumes/*/PRIVATE/M4ROOT/CLIP/"
+# file_regex = "^\\w+[.](?i:mp4|mov|avi|mts)$"
+
+# [[sections.destinations]]
+# dir_pattern = "~/Pictures/video/"
+# file_pattern = "{name}{suffix}.{extensions}"

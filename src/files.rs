@@ -95,7 +95,8 @@ impl FileFormatArgs {
 #[derive(Clone)]
 pub struct FileInfo {
     pub path: PathBuf,
-    pub created: SystemTime,
+    pub modified: SystemTime,
+    pub size: u64,
     pub format_args: FileFormatArgs,
 }
 
@@ -107,8 +108,8 @@ impl FileInfo {
         {
             Some(Self {
                 path: dir_entry.path(),
-                // NB: If created metadata is not available, this program shouldn't run
-                created: metadata.created().unwrap(),
+                modified: metadata.modified().unwrap(),
+                size: metadata.len(),
                 format_args,
             })
         } else {
@@ -118,19 +119,15 @@ impl FileInfo {
 
     fn content_matches(&self, other: &Self) -> bool {
         // This is a bad heuristic although it works for me. Replace/combine with cheap file hash?
-        if self.format_args.extensions != other.format_args.extensions {
-            return false;
-        }
-        let delta = (self.created)
-            .duration_since(other.created)
-            .unwrap_or_else(|e| e.duration());
-        delta.as_secs_f32() < 0.001
+        self.size == other.size
+            && self.format_args.extensions == other.format_args.extensions
+            && util::systime_delta(self.modified, other.modified).as_secs_f64() < 0.00001
     }
 }
 
 impl PartialEq for FileInfo {
     fn eq(&self, other: &Self) -> bool {
-        self.created == other.created
+        self.modified == other.modified
             && self.format_args.name == other.format_args.name
             && self.format_args.extensions == other.format_args.extensions
     }
@@ -138,7 +135,7 @@ impl PartialEq for FileInfo {
 
 impl Hash for FileInfo {
     fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
-        self.created.hash(state);
+        self.modified.hash(state);
         self.format_args.name.hash(state);
         self.format_args.extensions.hash(state);
     }
@@ -156,10 +153,10 @@ impl FileGroup {
     }
 
     fn get_ts(&self) -> DateTime<Local> {
-        // Uses the earliest available file creation time. Intuitively, editor
-        // metadata is created after image files are, but needs to be moved to
-        // the same destination for migrations.
-        self.files.iter().map(|f| f.created).min().unwrap().into()
+        // Uses the earliest modified time in the group. For groups containing
+        // related files (e.g. image + sidecar), the image file is typically
+        // modified earlier and its time best reflects the capture time.
+        self.files.iter().map(|f| f.modified).min().unwrap().into()
     }
 
     pub fn get_moves(
@@ -215,14 +212,14 @@ impl Destination {
         (self.ignore.iter_mut()).for_each(|ignore| ignore.expand_paths());
     }
 
-    pub fn get_dirs(&self, groups: &Vec<FileGroup>) -> impl ParallelIterator<Item = PathBuf> {
+    pub fn get_dirs(&self, groups: &[FileGroup]) -> impl ParallelIterator<Item = PathBuf> {
         (groups.par_iter()).map(|g| g.get_ts().format(&self.dir_pattern).to_string().into())
     }
 
     pub fn plan_moves(
         &self,
         plan: &mut plan::Plan,
-        groups: &mut Vec<FileGroup>,
+        groups: &[FileGroup],
         existing: &mut HashMap<PathBuf, FileInfo>,
     ) {
         let ignore: HashSet<_> = (self.ignore.par_iter())

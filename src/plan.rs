@@ -76,7 +76,8 @@ impl Plan {
             if let Some(first_dest) = self.first_moves.get(source) {
                 let new_file = FileInfo {
                     path: first_dest.clone(),
-                    created: source.created,
+                    modified: source.modified,
+                    size: source.size,
                     format_args: source.format_args.clone(),
                 };
                 self.moves.insert(dest.to_path_buf(), new_file);
