@@ -31,13 +31,13 @@ impl Section {
         self.destinations.iter_mut().for_each(|d| d.expand_paths());
     }
 
-    fn get_groups(&self) -> Vec<FileGroup> {
+    fn get_groups(&self) -> Vec<Vec<FileGroup>> {
         (self.sources.par_iter())
-            .flat_map(|source| files::get_groups(source.match_files()))
+            .flat_map(|source| source.match_files_by_dir())
             .collect()
     }
 
-    fn get_dest_dirs(&self, groups: &[FileGroup]) -> HashSet<PathBuf> {
+    fn get_dest_dirs(&self, groups: &[&FileGroup]) -> HashSet<PathBuf> {
         (self.destinations.par_iter())
             .flat_map(|dest| dest.get_dirs(groups))
             .collect()
@@ -85,23 +85,24 @@ fn main() {
     let mut all_dest_dirs: HashSet<PathBuf> = HashSet::new();
 
     for (i, section) in config.sections.iter().enumerate() {
-        let groups = section.get_groups();
-        let file_total: usize = groups.iter().map(|g| g.files.len()).sum();
+        let source_groups = section.get_groups();
+        let flat_groups: Vec<&FileGroup> = source_groups.iter().flatten().collect();
+        let file_total: usize = flat_groups.iter().map(|g| g.files.len()).sum();
         println!(
             "[{}] Found {file_total} source files in {} groups",
             section.name.clone().unwrap_or_else(|| (i + 1).to_string()),
-            groups.len()
+            flat_groups.len()
         );
         if file_total == 0 {
             continue;
         }
-        let dest_dirs = section.get_dest_dirs(&groups);
+        let dest_dirs = section.get_dest_dirs(&flat_groups);
         let mut existing: HashMap<_, _> = files::get_files_for_dirs(dest_dirs.par_iter())
             .filter_map(|dir_entry| FileInfo::get_from_dir_entry(dir_entry, &None))
             .map(|f| (f.path.clone(), f))
             .collect();
         for dest in &section.destinations {
-            dest.plan_moves(&mut plan, &groups, &mut existing);
+            dest.plan_moves(&mut plan, &source_groups, &mut existing);
         }
         all_dest_dirs.extend(dest_dirs);
     }

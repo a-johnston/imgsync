@@ -1,4 +1,4 @@
-use std::collections::{HashMap, HashSet};
+use std::collections::HashMap;
 use std::fs::{DirEntry, read_dir};
 use std::hash::Hash;
 use std::path::{Path, PathBuf};
@@ -34,22 +34,25 @@ impl FilePattern {
         self.dir_pattern = util::expand_homedir(&self.dir_pattern);
     }
 
-    pub fn match_files(&self) -> impl ParallelIterator<Item = FileInfo> {
+    pub fn match_files_by_dir(&self) -> impl ParallelIterator<Item = Vec<FileGroup>> {
         let regex = if self.file_regex.is_empty() {
             None
         } else {
             Regex::new(&self.file_regex).ok()
         };
-        get_files_for_dirs(
-            glob::glob(&self.dir_pattern)
-                .into_par_iter()
-                .flat_map_iter(|paths| paths.flatten()),
-        )
-        // https://github.com/rust-lang/regex/blob/0d0023e41/PERFORMANCE.md#using-a-regex-from-multiple-threads
-        .map_with(regex, |regex, dir_entry| {
-            FileInfo::get_from_dir_entry(dir_entry, regex)
-        })
-        .filter_map(|f| f)
+        // Each glob-matched directory is treated as an independent source so that
+        // per-source cutoffs work correctly when a pattern matches multiple SD cards.
+        glob::glob(&self.dir_pattern)
+            .into_par_iter()
+            .flat_map_iter(|paths| paths.flatten())
+            // https://github.com/rust-lang/regex/blob/0d0023e41/PERFORMANCE.md#using-a-regex-from-multiple-threads
+            .map(move |dir| {
+                get_groups(
+                    get_files_for_dirs(rayon::iter::once(dir))
+                        .map_with(regex.clone(), |r, entry| FileInfo::get_from_dir_entry(entry, r))
+                        .filter_map(|f| f),
+                )
+            })
     }
 }
 
@@ -202,35 +205,47 @@ impl FileGroup {
 pub struct Destination {
     dir_pattern: String,
     file_pattern: String,
-    #[serde(default)]
-    ignore: Vec<FilePattern>,
 }
 
 impl Destination {
     pub fn expand_paths(&mut self) {
         self.dir_pattern = util::expand_homedir(&self.dir_pattern);
-        (self.ignore.iter_mut()).for_each(|ignore| ignore.expand_paths());
     }
 
-    pub fn get_dirs(&self, groups: &[FileGroup]) -> impl ParallelIterator<Item = PathBuf> {
-        (groups.par_iter()).map(|g| g.get_ts().format(&self.dir_pattern).to_string().into())
+    pub fn get_dirs<'a>(&'a self, groups: &'a [&'a FileGroup]) -> impl ParallelIterator<Item = PathBuf> + 'a {
+        groups.par_iter().map(|g| g.get_ts().format(&self.dir_pattern).to_string().into())
+    }
+
+    fn find_source_cutoff(&self, groups: &[FileGroup], existing: &HashMap<PathBuf, FileInfo>) -> Option<SystemTime> {
+        groups.iter()
+            .filter(|g| {
+                let suffix = g.get_unique_suffix(existing, self);
+                g.get_moves(self, suffix).all(|(dest_path, _)| existing.contains_key(&dest_path))
+            })
+            .map(|g| g.files.iter().map(|f| f.modified).min().unwrap())
+            .max()
     }
 
     pub fn plan_moves(
         &self,
         plan: &mut plan::Plan,
-        groups: &[FileGroup],
+        source_groups: &[Vec<FileGroup>],
         existing: &mut HashMap<PathBuf, FileInfo>,
     ) {
-        let ignore: HashSet<_> = (self.ignore.par_iter())
-            .flat_map(|ignore| ignore.match_files())
-            .collect();
-        for group in groups {
-            let suffix = group.get_unique_suffix(existing, self);
-            for (dest, file) in group.get_moves(self, suffix) {
-                if !existing.contains_key(&dest) && !ignore.contains(file) {
-                    existing.insert(dest.clone(), file.clone());
-                    plan.add_move(file, &dest);
+        for groups in source_groups {
+            let cutoff = self.find_source_cutoff(groups, existing);
+            for group in groups {
+                if cutoff.map_or(false, |c| {
+                    group.files.iter().map(|f| f.modified).min().unwrap() <= c
+                }) {
+                    continue;
+                }
+                let suffix = group.get_unique_suffix(existing, self);
+                for (dest, file) in group.get_moves(self, suffix) {
+                    if !existing.contains_key(&dest) {
+                        existing.insert(dest.clone(), file.clone());
+                        plan.add_move(file, &dest);
+                    }
                 }
             }
         }

@@ -45,13 +45,6 @@
 # # This example pattern prefixes the filename with the original parent directory name:
 # file_pattern = "{parent}_{name}{suffix}.{extensions}"
 
-# # Each destination can define as many ignore patterns as necessary. A source file matching
-# # any ignore pattern is skipped for that destination. This example configuration prevents
-# # files manually moved to a "rejects" folder from being copied to the destination again.
-# [[sections.destinations.ignore]]
-# dir_pattern = "~/Pictures/rejects/"
-# file_regex = "^\\w+([.]\\w+)+$"
-
 # # Example second section for videos syncing to a different destination:
 # [[sections]]
 # name = "videos"
