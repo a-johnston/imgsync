@@ -83,6 +83,7 @@ fn main() {
 
     let mut plan = plan::Plan::new(config.prefer_dest_copies);
     let mut all_dest_dirs: HashSet<PathBuf> = HashSet::new();
+    let mut collisions: usize = 0;
 
     for (i, section) in config.sections.iter().enumerate() {
         let source_groups = section.get_groups();
@@ -102,7 +103,7 @@ fn main() {
             .map(|f| (f.path.clone(), f))
             .collect();
         for dest in &section.destinations {
-            dest.plan_moves(&mut plan, &source_groups, &mut existing);
+            collisions += dest.plan_moves(&mut plan, &source_groups, &mut existing);
         }
         all_dest_dirs.extend(dest_dirs);
     }
@@ -116,7 +117,7 @@ fn main() {
     if config.log_moves {
         plan.log_moves();
     }
-    println!("Total moves: {total_moves}");
+    println!("Total moves: {total_moves}  Collisions: {collisions}");
     if config.confirm_moves && !util::get_user_confirmation("Confirm moves", false) {
         println!("Quitting");
         return;

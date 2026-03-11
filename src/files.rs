@@ -231,16 +231,20 @@ impl Destination {
         plan: &mut plan::Plan,
         source_groups: &[Vec<FileGroup>],
         existing: &mut HashMap<PathBuf, FileInfo>,
-    ) {
+    ) -> usize {
+        let mut collisions = 0;
         for groups in source_groups {
             let cutoff = self.find_source_cutoff(groups, existing);
             for group in groups {
-                if cutoff.map_or(false, |c| {
+                if cutoff.is_some_and(|c| {
                     group.files.iter().map(|f| f.modified).min().unwrap() <= c
                 }) {
                     continue;
                 }
                 let suffix = group.get_unique_suffix(existing, self);
+                if suffix > 0 {
+                    collisions += 1;
+                }
                 for (dest, file) in group.get_moves(self, suffix) {
                     if !existing.contains_key(&dest) {
                         existing.insert(dest.clone(), file.clone());
@@ -249,6 +253,7 @@ impl Destination {
                 }
             }
         }
+        collisions
     }
 }
 
