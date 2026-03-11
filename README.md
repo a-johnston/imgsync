@@ -22,10 +22,6 @@ file_regex = "^\\w+[.](?i:jpg|jpeg|png|cr2|cr3|arw|nef|dng|xmp)$"
 dir_pattern = "~/Pictures/library/%Y/%b/"
 file_pattern = "{parent}_{name}{suffix}.{extensions}"
 
-[[sections.destinations.ignore]]
-dir_pattern = "~/Pictures/rejects/"
-file_regex = "^\\w+_\\w+([.]\\w+)+$"
-
 [[sections]]
 name = "videos"
 
