@@ -118,6 +118,12 @@ impl Plan {
         self.moves.len() + self.first_moves.len()
     }
 
+    pub fn total_bytes(&self) -> u64 {
+        let first: u64 = self.first_moves.keys().map(|f| f.size).sum();
+        let secondary: u64 = self.moves.values().map(|f| f.size).sum();
+        first + secondary
+    }
+
     pub fn perform_moves(self) {
         if self.use_first_moves {
             if self.moves.is_empty() {

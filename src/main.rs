@@ -117,7 +117,8 @@ fn main() {
     if config.log_moves {
         plan.log_moves();
     }
-    println!("Total moves: {total_moves}  Collisions: {collisions}");
+    let total_bytes = util::format_bytes(plan.total_bytes() as f64);
+    println!("Total moves: {total_moves}  Collisions: {collisions}  Size: {total_bytes}");
     if config.confirm_moves && !util::get_user_confirmation("Confirm moves", false) {
         println!("Quitting");
         return;
